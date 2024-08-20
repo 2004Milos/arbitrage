@@ -1,10 +1,133 @@
 import requests
 import datetime
 import json
+from datetime import datetime
+import os
+import time as TimeLib
+import random
+
 
 def check_arbitrage(odds1, odds2):
     x = (1 / odds1 + 1 / odds2) 
     return x < 1
+
+def find_arbitrages(match, headers):
+    #sleep tako da daluje da je covek
+    sleep_duration = random.uniform(0.005, 1.1)
+    TimeLib.sleep(sleep_duration)
+
+    arbs = []
+    url = f"https://kvote.rs/api/v1/full/match?sport=Tennis&id={match['id']}&packageType=undefined"
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print("Failed to fetch match id", match['id'])
+        return
+
+    full_match = response.json()
+    try:
+        time = datetime.fromtimestamp(float(match['startTime'])/1000).strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        time = str(match['startTime'])
+
+    max_1 = (0, "")
+    max_2 = (0, "")
+    max_ps1 = (0, "")
+    max_ps2 = (0, "")
+    max_ds1 = (0, "")
+    max_ds2 =  (0, "")
+
+    # List of bookmakers
+    bookmakers = ["MaxBet", "Admiral", "BetOle", "OktagonBet", "PinnBet", "PlanetWin", "SoccerBet", "SuperBet"]
+
+    # Iterate through each bookmaker
+    for bookmaker in bookmakers:
+        if bookmaker in full_match:
+            if 'K1' in full_match[bookmaker]:
+                if(full_match[bookmaker]['K1'] > max_1[0]):
+                    max_1 = (full_match[bookmaker]['K1'], bookmaker)
+            if 'K2' in full_match[bookmaker]:
+                if(full_match[bookmaker]['K2'] > max_2[0]):
+                    max_2 = (full_match[bookmaker]['K2'], bookmaker)
+            if 'PS1' in full_match[bookmaker]:
+                if(full_match[bookmaker]['PS1'] > max_ps1[0]):
+                    max_ps1 = (full_match[bookmaker]['PS1'], bookmaker)
+            if 'PS2' in full_match[bookmaker]:
+                if(full_match[bookmaker]['PS2'] > max_ps2[0]):
+                    max_ps2 = (full_match[bookmaker]['PS2'], bookmaker)
+            if 'DS1' in full_match[bookmaker]:
+                if(full_match[bookmaker]['DS1'] > max_ds1[0]):
+                    max_ds1 = (full_match[bookmaker]['DS1'], bookmaker)
+            if 'DS2' in full_match[bookmaker]:
+                if(full_match[bookmaker]['DS2'] > max_ds2[0]):
+                    max_ds2 = (full_match[bookmaker]['DS2'], bookmaker)
+                    
+    # Check if arbitrage opportunities exists
+
+    if max_1[0] != 0 and max_2[0] != 0:
+        if check_arbitrage(max_1[0], max_2[0]):
+            u1, u2, p = uplate_i_profit(max_1[0], max_2[0])
+            print(f"Type: 12\nMatch: {match['home']} vs {match['away']}\nOdds1: {max_1[0]}, Odds2: {max_2[0]}\nTime: {time}\nUplata 1:{u1} Uplata 2:{u1}\nSiguran Profit: {p}\n\n---------------------------------\n")
+        
+            arbs.append({
+                "type": "12",
+                "Player1": match['home'],
+                "Player2": match['away'],
+                "Odds1": max_1[0],
+                "Odds2": max_2[0],
+                "Time": time,
+                "Uplata1": u1,
+                "Uplata2": u2,
+                "Profit": p,
+            })
+
+    if max_ps1[0] != 0 and max_ps2[0] != 0:
+        if check_arbitrage(max_ps1[0], max_ps2[0]):
+            u1, u2, p = uplate_i_profit(max_ps1[0], max_ps2[0])
+            print(f"Type: PS1PS2\nMatch: {match['home']} vs {match['away']}\nOdds1: {max_ps1[0]}, Odds2: {max_ps2[0]}\nTime: {time}\nUplata 1:{u1} Uplata 2:{u1}\nSiguran Profit: {p}\n\n---------------------------------\n")
+        
+            arbs.append({
+                "type": "PS1PS2",
+                "Player1": match['home'],
+                "Player2": match['away'],
+                "Odds1": max_ps1[0],
+                "Odds2": max_ps2[0],
+                "Time": time,
+                "Uplata1": u1,
+                "Uplata2": u2,
+                "Profit": p,
+            })
+    
+    if max_ds1[0] != 0 and max_ds2[0] != 0:
+        if check_arbitrage(max_ds1[0], max_ds2[0]): 
+            u1, u2, p = uplate_i_profit(max_ds1[0], max_ds2[0])
+            print(f"Type: DS1DS2\nMatch: {match['home']} vs {match['away']}\nOdds1: {max_ds1[0]}, Odds2: {max_ds2[0]}\nTime: {time}\nUplata 1:{u1} Uplata 2:{u1}\nSiguran Profit: {p}\n\n---------------------------------\n")
+        
+            arbs.append({
+                "type": "DS1DS2",
+                "Player1": match['home'],
+                "Player2": match['away'],
+                "Odds1": max_ds1[0],
+                "Odds2": max_ds2[0],
+                "Time": time,
+                "Uplata1": u1,
+                "Uplata2": u2,
+                "Profit": p,
+            })
+        
+    return arbs
+
+def uplate_i_profit(odds1, odds2):
+    x = 1 / odds1 + 1 / odds2
+    s1 = 100*1/odds1/x
+    s2 = 100*1/odds2/x
+    return s1,s2,min(s1*odds1, s2*odds2) - 100
+
+
+if not os.path.exists("arbitrages"):
+    os.makedirs("arbitrages")
+if not os.path.exists("raw"):
+    os.makedirs("raw")
 
 
 print("Authenticating...")
@@ -55,8 +178,9 @@ data = response.json()
 
 print("Successfully fetched matches")
 
-timestamp = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
-filename = f'fetch_{timestamp}.json'
+timestamp = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+filename = os.path.join("raw", f'fetch_{timestamp}.json')
+
 print("Saving to " + filename + " json file...")
 
 # Save JSON data to a file
@@ -64,14 +188,23 @@ with open(filename, 'w') as json_file:
     json.dump(data, json_file, indent=4)
 print("Successfully saved")
 
-print("Checking for arbitrage opportunities...")
-filtered_matches = []
-for match in data['Tennis']['Ostalo']:
-    if check_arbitrage(match['odds1'], match['odds2']):
-        filtered_matches.append(match)
 
-print("Found", len(filtered_matches), "arbitrage opportunities:")
-# Print the filtered matches
-for match in filtered_matches:
-    print(f"Match: {match['home']} vs {match['away']}, Odds1: {match['odds1']}, Odds2: {match['odds2']}")
+print("Checking for arbitrage opportunities...")
+arbitrages = []
+curr = 1
+for match in data['Tennis']['Ostalo']:
+    found = find_arbitrages(match, headers)
+    arbitrages.extend(found)
+    print(f"{curr}/{len(data['Tennis']['Ostalo'])}")
+    curr = curr + 1
+
+print()
+print("Found", len(arbitrages), "arbitrage opportunities:")
+
+
+if len(arbitrages) > 0:
+    print(f"Saving arbitrage opportunities to arbitrage_{timestamp}.json")
+    with open(os.path.join("arbitrages", f'arbitrage_{timestamp}.json'), 'w') as json_file:
+        json.dump(arbitrages, json_file, indent=4)
+    print("Successfully saved")
 
