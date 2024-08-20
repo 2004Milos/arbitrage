@@ -5,6 +5,8 @@ from datetime import datetime
 import os
 import time as TimeLib
 import random
+import smtplib
+from email.mime.text import MIMEText
 
 
 def check_arbitrage(odds1, odds2):
@@ -78,6 +80,8 @@ def find_arbitrages(match, headers):
                 "Time": time,
                 "Uplata1": u1,
                 "Uplata2": u2,
+                "Kladionica1": max_1[1],
+                "Kladionica2": max_2[1],
                 "Profit": p,
             })
 
@@ -95,6 +99,8 @@ def find_arbitrages(match, headers):
                 "Time": time,
                 "Uplata1": u1,
                 "Uplata2": u2,
+                "Kladionica1": max_ps1[1],
+                "Kladionica2": max_ps2[1],
                 "Profit": p,
             })
     
@@ -112,6 +118,8 @@ def find_arbitrages(match, headers):
                 "Time": time,
                 "Uplata1": u1,
                 "Uplata2": u2,
+                "Kladionica1": max_ds1[1],
+                "Kladionica2": max_ds2[1],
                 "Profit": p,
             })
         
@@ -203,8 +211,25 @@ print("Found", len(arbitrages), "arbitrage opportunities:")
 
 
 if len(arbitrages) > 0:
+    arbitrages.sort(key=lambda x: x['Profit'], reverse=True)
     print(f"Saving arbitrage opportunities to arbitrage_{timestamp}.json")
     with open(os.path.join("arbitrages", f'arbitrage_{timestamp}.json'), 'w') as json_file:
         json.dump(arbitrages, json_file, indent=4)
     print("Successfully saved")
 
+    print("Sending email...")
+    subject = f"Arbitrages_{timestamp}"
+    body = json.dumps(arbitrages, indent=4)
+    sender = "zaharije48@gmail.com"
+    recipients = ["tunepologame@gmail.com", "nikolamark50@gmail.com"]
+    password = "uodp brkn wkwe wtez"
+    #Kanister123
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ', '.join(recipients)
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+        smtp_server.login(sender, password)
+        smtp_server.sendmail(sender, recipients, msg.as_string())
+    print("Message sent!")
