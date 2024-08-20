@@ -1,22 +1,12 @@
-name: Run Python Script Every Hour
-
+name: Test Schedule Workflow
 on:
   schedule:
-    # Runs every hour
-    - cron: '12 * * * *'
+    - cron: '14 * * * *'
 
 jobs:
-  run-script:
+  cron:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'  # Specify the Python version
-
-    - name: Run Python script
-      run: py main.py
+      - name: Run a one-line script
+        run: echo Hello, world!
