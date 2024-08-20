@@ -1,7 +1,7 @@
 name: Test Schedule Workflow
 on:
   schedule:
-    - cron: '23 * * * *'
+    - cron: '24 * * * *'
 
 jobs:
   cron:
